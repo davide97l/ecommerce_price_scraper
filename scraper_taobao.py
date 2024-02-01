@@ -1,56 +1,54 @@
-import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from time import sleep
-from utils import get_cookies
-import os
 import pickle
+import os
+from scraper_base import BaseScraper
 
 
-def get_product_info_taobao(product_name, cookies='cookies/taobao.pkl', limit=10):
-    product_name = product_name.lower().replace(' ', '%20')
-    search_url = f"https://s.taobao.com/search?page=1&q={product_name}&tab=all"
+class TaobaoScraper(BaseScraper):
+    def __init__(self, products_limit=10):
+        super().__init__(products_limit)
+        self.cookies_path = 'cookies/taobao.pkl'
+        self.cookies_name = 'taobao'
+        self.url = 'https://www.taobao.com/'
+        self.login_url = self.url
+        self.store_name = 'taobao'
 
-    driver = webdriver.Chrome()
-    driver.get('https://www.taobao.com')
-    cookies = pickle.load(open(cookies, 'rb'))
-    for cookie in cookies:
-        driver.add_cookie(cookie)
-    driver.refresh()
+    def scrape_product_info(self, product_name):
+        product_name = product_name.lower().replace(' ', '%20')
+        search_url = f"https://s.taobao.com/search?page=1&q={product_name}&tab=all"
 
-    driver.get(search_url)
-    soup = BeautifulSoup(driver.page_source, 'lxml')
-    #print(soup)
+        driver = webdriver.Chrome()
+        driver.get(self.url)
+        cookies = pickle.load(open(self.cookies_path, 'rb'))
+        for cookie in cookies:
+            driver.add_cookie(cookie)
+        driver.refresh()
 
-    def criteria(tag):
-        # filter tmall items
-        return not tag.find(class_='Title--iconPic--kYJcAc0') \
-               and tag.find(class_='Price--priceInt--ZlsSi_M') and tag.find(class_='Title--title--jCOPvpf') \
-               and tag.find(class_='Card--mainPicAndDesc--wvcDXaK') \
-               and not tag.find(class_='Card--doubleCard--wznk5U4') and not tag.find(class_='Card--doubleCardWrapper--L2XFE73')
+        driver.get(search_url)
+        soup = BeautifulSoup(driver.page_source, 'lxml')
 
-    divs = soup.find_all(criteria)
+        def criteria(tag):
+            # filter tmall items
+            return not tag.find(class_='Title--iconPic--kYJcAc0') \
+                   and tag.find(class_='Price--priceInt--ZlsSi_M') and tag.find(class_='Title--title--jCOPvpf') \
+                   and tag.find(class_='Card--mainPicAndDesc--wvcDXaK') \
+                   and not tag.find(class_='Card--doubleCard--wznk5U4') and not tag.find(class_='Card--doubleCardWrapper--L2XFE73')
 
-    products = []
-    for div in divs:
-        price_int = div.select_one('.Price--priceInt--ZlsSi_M')
-        price_float = div.select_one('.Price--priceFloat--h2RR0RK')
-        name = div.select_one('.Title--title--jCOPvpf')
-        price = int(price_int.text.strip()) + float(price_float.text.strip())
-        product = {"name": name.text.strip(), "price": price}
-        products.append(product)
-        if limit is not None and len(products) == limit:
-            break
+        divs = soup.find_all(criteria)
 
-    driver.quit()
+        products = []
+        for div in divs:
+            price_int = div.select_one('.Price--priceInt--ZlsSi_M')
+            price_float = div.select_one('.Price--priceFloat--h2RR0RK')
+            name = div.select_one('.Title--title--jCOPvpf')
+            price = int(price_int.text.strip()) + float(price_float.text.strip())
+            product = {"name": name.text.strip(), "price": price}
+            products.append(product)
+            if len(products) == self.limit:
+                break
 
-    return products
+        driver.quit()
 
+        return products
 
-if __name__ == "__main__":
-    url = 'https://www.taobao.com/'
-    if not os.path.isfile('cookies/taobao.pkl'):
-        print('Cookie not detected, please login so save cookies')
-        get_cookies(url, cookies_name='taobao')
-    products_info = get_product_info_taobao('kinder bueno')
-    print(products_info)
