@@ -27,15 +27,21 @@ class TmallScraper(BaseScraper):
 
         driver.get(search_url)
         soup = BeautifulSoup(driver.page_source, 'lxml')
+        #print(soup)
 
         prices_int = soup.select('.Price--priceInt--ZlsSi_M')
         prices_float = soup.select('.Price--priceFloat--h2RR0RK')
         names = soup.select('.Title--title--jCOPvpf')
+        merchants = soup.select('.ShopInfo--shopName--rg6mGmy')
+        anchors = soup.find_all('a', class_='Card--doubleCardWrapperMall--uPmo5Bz')
+        urls = [anchor['href'] for anchor in anchors]
 
         products = []
-        for name, price_int, price_float in zip(names, prices_int, prices_float):
+        for name, price_int, price_float, merchant, url in zip(names, prices_int, prices_float, merchants, urls):
             price = int(price_int.text.strip()) + float(price_float.text.strip())
-            product = {"name": name.text.strip(), "price": price}
+            if not url.startswith('https:'):
+                url = 'https:' + url
+            product = {"product_name": name.text.strip(), "price": price, "merchant": merchant.text.strip(), "url": url}
             products.append(product)
             if len(products) == self.limit:
                 break
@@ -43,3 +49,13 @@ class TmallScraper(BaseScraper):
         driver.quit()
 
         return products
+
+
+def test_scraper():
+    scraper = TmallScraper(products_limit=10)
+    products = scraper.get_product_info('kinder bueno')
+    print(products)
+
+
+if __name__ == "__main__":
+    test_scraper()

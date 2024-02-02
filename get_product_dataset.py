@@ -10,17 +10,17 @@ import datetime
 if __name__ == "__main__":
     product_name = 'kinder bueno'
     save_dir = 'results'
-    vendors = [TaobaoScraper(), TmallScraper(), JDScraper()]
+    platforms = [TaobaoScraper(), TmallScraper(), JDScraper()]
     catalogs = []
-    for vendor in vendors:
+    for platform in platforms:
         try:
-            df = vendor.get_product_df(product_name)
+            df = platform.get_product_df(product_name)
             catalogs.append(df)
         except:
-            print(f'Scraping failed for vendor: {vendor.store_name}')
+            print(f'Scraping failed for vendor: {platform.store_name}')
 
     df = pd.concat(catalogs)
-    df = df[['vendor', 'name', 'price']]
+    df = df[['platform', 'merchant', 'product_name', 'price', 'url']]
     df = df.reset_index(drop=True)
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y%m%d%H%M")

@@ -27,7 +27,7 @@ class BaseScraper:
 
     def get_product_df(self, product_name):
         df = pd.DataFrame(self.get_product_info(product_name))
-        df['vendor'] = self.store_name
+        df['platform'] = self.store_name
         return df
 
     @staticmethod
