@@ -66,75 +66,88 @@ class TaobaoScraper(BaseScraper):
 
         return products
 
-    def scrape_product_info_by_weight(self, product_name):
+    def scrape_product_info_by_weight(self, product_name, use_gpt=False):
         product_name_original = product_name.lower().replace(' ', '%20')
         weight, product_name = self.get_weight_from_product_name(product_name_original)
         if weight is None:
             print('Error: weight is not specified in product name')
             return
         products_info = self.get_product_info(product_name_original)
-        print(products_info)
-        best_match_id = self.get_best_matching_product(product_name_original, products_info)  # TODO keep all good pages, for example all positive ones
-        products_info = products_info[best_match_id]
-        print(products_info)
+        ordered_products, scores = self.get_best_matching_product(product_name_original, products_info)
+        ordered_products = [product for product, score in zip(ordered_products, scores) if score > 0]
+        # TODO keep all good pages, for example all positive ones, then take the top10 best details page
+        print(ordered_products)
+        print(scores)
         #products_info = {'product_name': '丹麦皇冠西班牙风味香肠500g图林根风味猪肉肠幕尼黑风味白肠烤肠', 'price': 31.8, 'merchant': '你我的奶酪', 'url': 'https://item.taobao.com/item.htm?abbucket=17&id=760607768121&ns=1'}
         #products_info = {'product_name': '丹麦皇冠纯香肉肠台式火山石烤肠地道肠慕尼黑白肠图林根风味肠', 'price': 49.0, 'merchant': '寻味干货专营店', 'url': 'https://detail.tmall.com/item.htm?id=708213694390&ns=1&abbucket=17'}
         #products_info = {'product_name': '丹麦皇冠图林根香肠德国风味白肉肠熏煮肠西餐简餐商用800g约16条', 'price': 56.9, 'merchant': '瑞瀛生鲜冻品商城', 'url': 'https://detail.tmall.com/item.htm?ali_refid=a3_430582_1006:1684428020:N:TwvSVFUPtXbr29G34LcrOYtomUjWCyWz:3ff52cc43c1d158bc2a9e5f92eac4a77&ali_trackid=100_3ff52cc43c1d158bc2a9e5f92eac4a77&id=753462867032&spm=a21n57.1.0.0'}
 
         driver = self.login()
-        driver.get(products_info['url'])
-        try:
-            element = WebDriverWait(driver, 5).until(
-            EC.presence_of_element_located((By.CLASS_NAME, 'skuItemWrapper')))
-        except TimeoutException:
-            pass  # this will simply cause products_list to be empty which is ok
-        soup = BeautifulSoup(driver.page_source, 'lxml')
-        #print(soup)
+        product_dict = []
+        for product_info in ordered_products:
+            driver.get(product_info['url'])
+            try:
+                element = WebDriverWait(driver, 5).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'skuItemWrapper')))
+            except TimeoutException:
+                pass  # this will simply cause products_list to be empty which is ok
+            soup = BeautifulSoup(driver.page_source, 'lxml')
+            #print(soup)
 
-        products_list = soup.select('.skuItem')
-        print(len(products_list), products_list)
-        #products_list = [product for product in products_list if product is not None and 'disabled' not in product.get_attribute('class')]
-        #print(len(products_list), products_list)
-        if len(products_list) < 2:
-            products_info['product_name_vendor'] = products_info['product_name']
-            products_info['product_name'] = product_name_original
-            return products_info
-
-        best_match_product_idx = 0
-        best_match_product_score = -np.Inf
-        best_product_name_detail = ''
-        for i, product in enumerate(products_list):
-            if 'disabled' in product:  # filter disabled elements
+            products_list = soup.select('.skuItem')
+            print(f'Scraping product {product_info["product_name"]}')
+            print(f'Scraped {len(products_list)} items in details page')
+            if len(products_list) < 2:
+                if weight not in product_info['product_name']:
+                    continue
+                score = self.check_name_matching_score(product_name, product_info['product_name'],
+                                                       remove_punctuation=True)
+                product_dict.append({'product_name': product_info['product_name'], 'price': product_info['price'],
+                                     'merchant': product_info['merchant'], 'url': product_info['url'],
+                                     'score': score})
+                print(product_dict[-1])
                 continue
-            product_name_detail = product.text.strip()
-            if weight not in product_name_detail:
-                continue
-            product_name_detail = self.get_weight_from_product_name(product_name_detail)[1]
-            match_score = self.check_name_matching_score(product_name, product_name_detail, remove_punctuation=True)
-            print(product_name_detail, product_name, match_score, best_match_product_score)
-            if match_score > best_match_product_score:
-                best_match_product_idx = i
-                best_match_product_score = match_score
-                best_product_name_detail = product_name_detail
 
-        print('Best match:', best_product_name_detail)
-        # if can reach here it means match is found, now click on it to get the price
-        element = driver.find_elements(By.CSS_SELECTOR, '.skuIcon')[best_match_product_idx]
-        element.click()
-        # check for discounts
-        try:
-            price_element = driver.find_element(By.CLASS_NAME, 'Price--extraPriceText--2dbLkGw')
-        except:
-            price_element = driver.find_element(By.CLASS_NAME, 'Price--priceText--2nLbVda')
-        print(price_element)
-        price = float(price_element.text)
-        products_info['product_name'] = product_name_original
-        products_info['product_name_vendor'] = best_product_name_detail
-        products_info['price'] = price
+            for i, product in enumerate(products_list):
+                if 'disabled' in product:  # filter disabled elements
+                    continue
+                product_name_detail_original = product.text.strip()
+                if weight not in product_name_detail_original:
+                    continue
+                product_name_detail = self.get_weight_from_product_name(product_name_detail_original)[1]
+                score = self.check_name_matching_score(product_name, product_name_detail, remove_punctuation=True)
+                if score < 1:
+                    continue
+                # now click on it to get the price
+                element = driver.find_elements(By.CSS_SELECTOR, '.skuIcon')[i]
+                element.click()
+                # check for discounts
+                try:
+                    price_element = driver.find_element(By.CLASS_NAME, 'Price--extraPriceText--2dbLkGw')
+                except:
+                    price_element = driver.find_element(By.CLASS_NAME, 'Price--priceText--2nLbVda')
+                price = float(price_element.text)
+                product_dict.append({'product_name': f"{product_info['product_name']}-{product_name_detail_original}",
+                                     'price': price,
+                                     'merchant': product_info['merchant'], 'url': product_info['url'],
+                                     'score': score})
+                print(product_dict[-1])
 
+        product_dict = sorted(product_dict, key=lambda x: x['score'], reverse=True)
+
+        # filter with chatgpt
+        print(product_dict)
+        print('Final result:', product_dict)
+        if use_gpt:
+            gpt_product_dict = [product for product in product_dict if
+                            self.check_name_matching_gpt(product['product_name'].split('-')[-1], product_name_original)]
+            print('After GPT filter:', product_dict)
+            if len(gpt_product_dict) > 0:
+                product_dict = gpt_product_dict
+                
         driver.quit()
 
-        return products_info
+        return product_dict
 
 
 def test_scraper():
@@ -142,12 +155,15 @@ def test_scraper():
     #products = scraper.get_product_info('丹麦皇冠慕尼黑风味白肠500g')
     #print(products)
     products = [#'丹麦皇冠慕尼黑风味白肠500g', '丹麦皇冠西班牙风味香肠800g', '丹麦皇冠西班牙风味香肠500g',
-        '丹麦皇冠图林根风味香肠350g', '丹麦皇冠图林根风味香肠500g', '丹麦皇冠图林根风味香肠800g']
+        '丹麦皇冠图林根风味香肠350g',
+        #'丹麦皇冠图林根风味香肠500g',
+        #'丹麦皇冠图林根风味香肠800g'
+        ]
     prices = [#49, 125, 52,
               31.8, 49, 49]
     i = 0
     for p in products:
-        product_info = scraper.scrape_product_info_by_weight(p)
+        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=True)
         print(product_info)
         print(prices[i])
         i+=1

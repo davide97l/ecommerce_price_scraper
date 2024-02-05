@@ -6,6 +6,10 @@ import pandas as pd
 import re
 import numpy as np
 from selenium.webdriver.chrome.options import Options
+from operator import itemgetter
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
 
 
 class BaseScraper:
@@ -46,6 +50,7 @@ class BaseScraper:
         return weight[0] if weight else None, updated_product_name
 
     @staticmethod
+    # TODO remove
     def check_name_matching(reference_product, product_name, remove_punctuation=False):
         if remove_punctuation:
             product_name = ''.join(char if char.isalnum() or char.isspace() else '' for char in product_name)
@@ -54,6 +59,30 @@ class BaseScraper:
         if all(char in reference_product for char in product_name):
             return True
         return False
+
+    @staticmethod
+    def check_name_matching_gpt(item1, item2):
+        load_dotenv()
+        client = OpenAI(
+            # This is the default and can be omitted
+            api_key=os.getenv('OPENAI_KEY'),
+        )
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": 'assistant',
+                    "content": """Act as a ecommerce products comparator. Given as input two items tell if they refer to the
+                            same item or they are different one.
+                            Different weights, vendors, tastes, all refer to different items. 
+                            Just return True or False based on your conclusion.
+                            "\nItem 1: {}\nItem 2: {}""".format(item1, item2)
+                }
+            ],
+            model="gpt-3.5-turbo",
+        )
+        response = str(chat_completion.choices[0].message.content.strip()).lower()
+        return True if 'true' in response else False
+
 
     @staticmethod
     def check_name_matching_score(reference_product, product_name, remove_punctuation=False):
@@ -65,16 +94,14 @@ class BaseScraper:
         return len(matching_chars) - len(non_matching_chars)
 
     def get_best_matching_product(self, product_name, products_info):
-        # TODO if input is df convert it to dict
-        best_match_product_idx = 0
-        best_match_product_score = -np.Inf
+        product_scores = []
         for i, product in enumerate(products_info):
             match_score = self.check_name_matching_score(product['product_name'], product_name)
-            if match_score > best_match_product_score:
-                best_match_product_idx = i
-                best_match_product_score = match_score
-            print(product['product_name'], product_name, match_score, best_match_product_score, best_match_product_idx)
-        return best_match_product_idx
+            product_scores.append({'product': product, 'score': match_score})
+        sorted_product_scores = sorted(product_scores, key=itemgetter('score'), reverse=True)
+        sorted_scores = [product_score['score'] for product_score in sorted_product_scores]
+        sorted_products = [product_score['product'] for product_score in sorted_product_scores]
+        return sorted_products, sorted_scores
 
     def login(self):
         options = Options()
