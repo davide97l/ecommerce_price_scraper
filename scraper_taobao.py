@@ -1,8 +1,16 @@
+import numpy as np
 from bs4 import BeautifulSoup
 from selenium import webdriver
 import pickle
 import os
 from scraper_base import BaseScraper
+from selenium.webdriver.common.by import By
+import time
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 
 
 class TaobaoScraper(BaseScraper):
@@ -18,20 +26,15 @@ class TaobaoScraper(BaseScraper):
         product_name = product_name.lower().replace(' ', '%20')
         search_url = f"https://s.taobao.com/search?page=1&q={product_name}&tab=all"
 
-        driver = webdriver.Chrome()
-        driver.get(self.url)
-        cookies = pickle.load(open(self.cookies_path, 'rb'))
-        for cookie in cookies:
-            driver.add_cookie(cookie)
-        driver.refresh()
+        driver = self.login()
 
         driver.get(search_url)
         soup = BeautifulSoup(driver.page_source, 'lxml')
 
         def criteria(tag):
             # filter tmall items
-            return not tag.find(class_='Title--iconPic--kYJcAc0') \
-                   and tag.find(class_='Price--priceInt--ZlsSi_M') and tag.find(class_='Title--title--jCOPvpf') \
+            #return not tag.find(class_='Title--iconPic--kYJcAc0') \  #TODO remove this shit
+            return tag.find(class_='Price--priceInt--ZlsSi_M') and tag.find(class_='Title--title--jCOPvpf') \
                    and tag.find(class_='Card--mainPicAndDesc--wvcDXaK') \
                    and not tag.find(class_='Card--doubleCard--wznk5U4') and not tag.find(class_='Card--doubleCardWrapper--L2XFE73')
 
@@ -39,7 +42,8 @@ class TaobaoScraper(BaseScraper):
 
         def criteria(tag):
             return tag.name == 'a' and tag.get('class') and 'Card--doubleCardWrapper--L2XFE73' in tag.get('class') \
-                   and not tag.find(class_='Title--iconPic--kYJcAc0')
+                   #and tag.find(class_='Title--iconPic--kYJcAc0')
+                   #and not tag.find(class_='Title--iconPic--kYJcAc0')
 
         a_tags = soup.find_all(criteria)
         urls = [a['href'] for a in a_tags]
@@ -62,13 +66,93 @@ class TaobaoScraper(BaseScraper):
 
         return products
 
+    def scrape_product_info_by_weight(self, product_name):
+        product_name_original = product_name.lower().replace(' ', '%20')
+        weight, product_name = self.get_weight_from_product_name(product_name_original)
+        if weight is None:
+            print('Error: weight is not specified in product name')
+            return
+        products_info = self.get_product_info(product_name_original)
+        print(products_info)
+        best_match_id = self.get_best_matching_product(product_name_original, products_info)  # TODO keep all good pages, for example all positive ones
+        products_info = products_info[best_match_id]
+        print(products_info)
+        #products_info = {'product_name': '丹麦皇冠西班牙风味香肠500g图林根风味猪肉肠幕尼黑风味白肠烤肠', 'price': 31.8, 'merchant': '你我的奶酪', 'url': 'https://item.taobao.com/item.htm?abbucket=17&id=760607768121&ns=1'}
+        #products_info = {'product_name': '丹麦皇冠纯香肉肠台式火山石烤肠地道肠慕尼黑白肠图林根风味肠', 'price': 49.0, 'merchant': '寻味干货专营店', 'url': 'https://detail.tmall.com/item.htm?id=708213694390&ns=1&abbucket=17'}
+        #products_info = {'product_name': '丹麦皇冠图林根香肠德国风味白肉肠熏煮肠西餐简餐商用800g约16条', 'price': 56.9, 'merchant': '瑞瀛生鲜冻品商城', 'url': 'https://detail.tmall.com/item.htm?ali_refid=a3_430582_1006:1684428020:N:TwvSVFUPtXbr29G34LcrOYtomUjWCyWz:3ff52cc43c1d158bc2a9e5f92eac4a77&ali_trackid=100_3ff52cc43c1d158bc2a9e5f92eac4a77&id=753462867032&spm=a21n57.1.0.0'}
+
+        driver = self.login()
+        driver.get(products_info['url'])
+        try:
+            element = WebDriverWait(driver, 5).until(
+            EC.presence_of_element_located((By.CLASS_NAME, 'skuItemWrapper')))
+        except TimeoutException:
+            pass  # this will simply cause products_list to be empty which is ok
+        soup = BeautifulSoup(driver.page_source, 'lxml')
+        #print(soup)
+
+        products_list = soup.select('.skuItem')
+        print(len(products_list), products_list)
+        #products_list = [product for product in products_list if product is not None and 'disabled' not in product.get_attribute('class')]
+        #print(len(products_list), products_list)
+        if len(products_list) < 2:
+            products_info['product_name_vendor'] = products_info['product_name']
+            products_info['product_name'] = product_name_original
+            return products_info
+
+        best_match_product_idx = 0
+        best_match_product_score = -np.Inf
+        best_product_name_detail = ''
+        for i, product in enumerate(products_list):
+            if 'disabled' in product:  # filter disabled elements
+                continue
+            product_name_detail = product.text.strip()
+            if weight not in product_name_detail:
+                continue
+            product_name_detail = self.get_weight_from_product_name(product_name_detail)[1]
+            match_score = self.check_name_matching_score(product_name, product_name_detail, remove_punctuation=True)
+            print(product_name_detail, product_name, match_score, best_match_product_score)
+            if match_score > best_match_product_score:
+                best_match_product_idx = i
+                best_match_product_score = match_score
+                best_product_name_detail = product_name_detail
+
+        print('Best match:', best_product_name_detail)
+        # if can reach here it means match is found, now click on it to get the price
+        element = driver.find_elements(By.CSS_SELECTOR, '.skuIcon')[best_match_product_idx]
+        element.click()
+        # check for discounts
+        try:
+            price_element = driver.find_element(By.CLASS_NAME, 'Price--extraPriceText--2dbLkGw')
+        except:
+            price_element = driver.find_element(By.CLASS_NAME, 'Price--priceText--2nLbVda')
+        print(price_element)
+        price = float(price_element.text)
+        products_info['product_name'] = product_name_original
+        products_info['product_name_vendor'] = best_product_name_detail
+        products_info['price'] = price
+
+        driver.quit()
+
+        return products_info
+
 
 def test_scraper():
     scraper = TaobaoScraper(products_limit=10)
-    products = scraper.get_product_info('kinder bueno')
-    print(products)
+    #products = scraper.get_product_info('丹麦皇冠慕尼黑风味白肠500g')
+    #print(products)
+    products = [#'丹麦皇冠慕尼黑风味白肠500g', '丹麦皇冠西班牙风味香肠800g', '丹麦皇冠西班牙风味香肠500g',
+        '丹麦皇冠图林根风味香肠350g', '丹麦皇冠图林根风味香肠500g', '丹麦皇冠图林根风味香肠800g']
+    prices = [#49, 125, 52,
+              31.8, 49, 49]
+    i = 0
+    for p in products:
+        product_info = scraper.scrape_product_info_by_weight(p)
+        print(product_info)
+        print(prices[i])
+        i+=1
+        print('--------------------')
 
 
 if __name__ == "__main__":
     test_scraper()
-
