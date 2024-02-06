@@ -10,6 +10,7 @@ from operator import itemgetter
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
+from fake_useragent import UserAgent
 
 
 class BaseScraper:
@@ -101,9 +102,19 @@ class BaseScraper:
         sorted_products = [product_score['product'] for product_score in sorted_product_scores]
         return sorted_products, sorted_scores
 
-    def login(self):
+    def login(self, headless=False):
         options = Options()
         options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537')
+        if headless:
+            options.add_argument("--headless")
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("--incognito")
+        # Set up fake user agent
+        ua = UserAgent()
+        userAgent = ua.random
+        #print(userAgent)
+        options.add_argument(f'user-agent={userAgent}')
         driver = webdriver.Chrome(options=options)
         driver.get(self.url)
         cookies = pickle.load(open(self.cookies_path, 'rb'))

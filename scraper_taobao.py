@@ -11,6 +11,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
+import random
 
 
 class TaobaoScraper(BaseScraper):
@@ -26,7 +27,7 @@ class TaobaoScraper(BaseScraper):
         product_name = product_name.lower().replace(' ', '%20')
         search_url = f"https://s.taobao.com/search?page=1&q={product_name}&tab=all"
 
-        driver = self.login()
+        driver = self.login(headless=False)
 
         driver.get(search_url)
         soup = BeautifulSoup(driver.page_source, 'lxml')
@@ -66,7 +67,7 @@ class TaobaoScraper(BaseScraper):
 
         return products
 
-    def scrape_product_info_by_weight(self, product_name, use_gpt=False, verbose=False, sleep_time=1.):
+    def scrape_product_info_by_weight(self, product_name, use_gpt=False, verbose=False, sleep_time=2., headless=False):
         product_name_original = product_name.lower().replace(' ', '%20')
         weight_original, product_name_no_w = self.get_weight_from_product_name(product_name_original)
         if weight_original is None:
@@ -81,10 +82,10 @@ class TaobaoScraper(BaseScraper):
         #products_info = {'product_name': '丹麦皇冠纯香肉肠台式火山石烤肠地道肠慕尼黑白肠图林根风味肠', 'price': 49.0, 'merchant': '寻味干货专营店', 'url': 'https://detail.tmall.com/item.htm?id=708213694390&ns=1&abbucket=17'}
         #products_info = {'product_name': '丹麦皇冠图林根香肠德国风味白肉肠熏煮肠西餐简餐商用800g约16条', 'price': 56.9, 'merchant': '瑞瀛生鲜冻品商城', 'url': 'https://detail.tmall.com/item.htm?ali_refid=a3_430582_1006:1684428020:N:TwvSVFUPtXbr29G34LcrOYtomUjWCyWz:3ff52cc43c1d158bc2a9e5f92eac4a77&ali_trackid=100_3ff52cc43c1d158bc2a9e5f92eac4a77&id=753462867032&spm=a21n57.1.0.0'}
 
-        driver = self.login()
+        driver = self.login(headless=headless)
         product_dict = []
         for product_info in ordered_products:
-            time.sleep(sleep_time)
+            time.sleep(random.randint(max(sleep_time-2, 0), max(sleep_time+2, 0)))
             driver.get(product_info['url'])
             try:
                 element = WebDriverWait(driver, 5).until(
@@ -111,7 +112,7 @@ class TaobaoScraper(BaseScraper):
                 continue
 
             for i, product in enumerate(products_list):
-                time.sleep(sleep_time)
+                time.sleep(random.randint(max(sleep_time-2, 0), max(sleep_time+2, 0)))
                 if 'disabled' in product:  # filter disabled elements
                     continue
                 product_name_detail_original = product.text.strip()
@@ -177,15 +178,17 @@ def test_scraper():
                 #'丹麦皇冠木烟熏蒸煮香肠200g', '丹麦皇冠木烟熏蒸煮香肠1kg',
                 #'丹麦皇冠木烟熏蒸煮热狗肠200g', '丹麦皇冠木烟熏蒸煮热狗肠1kg', '丹麦皇冠超值热狗肠200g', '丹麦皇冠超值热狗肠1kg'
                 ]
-    prices = [#49, 64, 32,
-              #31.8, 49, 49,
-              52, 27.84, 60]
+    prices = [
+        #49, 64, 32,
+        #31.8, 49, 49,
+        52, 27.84, 60
+    ]
     for i, p in enumerate(products):
         print(f'Scraping product: {products[i]}')
-        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=False, verbose=True)
+        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=False, verbose=True, headless=False)
         print(f'Target price: {prices[i]}')
         print('--------------------')
-        time.sleep(10)
+        time.sleep(5)
 
 
 if __name__ == "__main__":

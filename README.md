@@ -8,3 +8,5 @@ sometimes weight is only in main page and not in details page
 
 tmall and taobao can be one object for now
 costco excluded
+
+consider case no suitable products found
