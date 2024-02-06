@@ -62,6 +62,7 @@ class BaseScraper:
 
     @staticmethod
     def check_name_matching_gpt(item1, item2):
+        print(item1, item2)
         load_dotenv()
         client = OpenAI(
             # This is the default and can be omitted
@@ -71,18 +72,15 @@ class BaseScraper:
             messages=[
                 {
                     "role": 'assistant',
-                    "content": """Act as a ecommerce products comparator. Given as input two items tell if they refer to the
-                            same item or they are different one.
-                            Different weights, vendors, tastes, all refer to different items. 
-                            Just return True or False based on your conclusion.
+                    "content": """Act as a ecommerce products comparator. Given as input two items tell if they refer to the same item or they are different one. Ignore the brand and focus on the weight and type of item. Different weights also refer to different items. Just return True or False based on your conclusion.
                             "\nItem 1: {}\nItem 2: {}""".format(item1, item2)
                 }
             ],
-            model="gpt-3.5-turbo",
+            model="gpt-4",
         )
         response = str(chat_completion.choices[0].message.content.strip()).lower()
+        print(response)
         return True if 'true' in response else False
-
 
     @staticmethod
     def check_name_matching_score(reference_product, product_name, remove_punctuation=False):
@@ -107,7 +105,6 @@ class BaseScraper:
         options = Options()
         options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537')
         driver = webdriver.Chrome(options=options)
-        #driver = webdriver.Chrome()
         driver.get(self.url)
         cookies = pickle.load(open(self.cookies_path, 'rb'))
         for cookie in cookies:
