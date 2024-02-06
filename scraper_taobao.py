@@ -107,6 +107,7 @@ class TaobaoScraper(BaseScraper):
                     continue
                 product_dict.append({'product_name': product_info['product_name'], 'price': product_info['price'],
                                      'merchant': product_info['merchant'], 'url': product_info['url'],
+                                     'platform': self.store_name,
                                      'score': score})
                 if verbose: print(product_dict[-1])
                 continue
@@ -146,6 +147,7 @@ class TaobaoScraper(BaseScraper):
                 product_dict.append({'product_name': f"{product_info['product_name']}-{product_name_detail_original}",
                                      'price': price,
                                      'merchant': product_info['merchant'], 'url': product_info['url'],
+                                     'platform': self.store_name,
                                      'score': score})
                 if verbose: print(product_dict[-1])
 

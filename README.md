@@ -9,4 +9,7 @@ sometimes weight is only in main page and not in details page
 tmall and taobao can be one object for now
 costco excluded
 
+TODO
 consider case no suitable products found
+put scraped data in file
+improve product match LLM capabilities

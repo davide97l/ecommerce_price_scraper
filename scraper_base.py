@@ -51,17 +51,6 @@ class BaseScraper:
         return weight[0] if weight else None, updated_product_name
 
     @staticmethod
-    # TODO remove
-    def check_name_matching(reference_product, product_name, remove_punctuation=False):
-        if remove_punctuation:
-            product_name = ''.join(char if char.isalnum() or char.isspace() else '' for char in product_name)
-            reference_product = ''.join(char if char.isalnum() or char.isspace() else '' for char in reference_product)
-        # return True if all characters in product_name are present in reference_product
-        if all(char in reference_product for char in product_name):
-            return True
-        return False
-
-    @staticmethod
     def check_name_matching_gpt(item1, item2):
         print(item1, item2)
         load_dotenv()

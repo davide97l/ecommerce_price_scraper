@@ -5,40 +5,33 @@ from scraper_jd import JDScraper
 from scraper_taobao import TaobaoScraper
 import pandas as pd
 import datetime
-from process_dataset import process_dataset
 
 
-def scrape_product(product_name, save_dir='results'):
-    platforms = [TaobaoScraper(), TmallScraper(), JDScraper()]
-    catalogs = []
-    for platform in platforms:
-        try:
-            df = platform.get_product_df(product_name)
-            catalogs.append(df)
-        except:
-            print(f'Scraping failed for vendor: {platform.store_name}')
-
-    df = pd.concat(catalogs)
+def process_dataset(df, promo_price):
     df = df[['platform', 'merchant', 'product_name', 'price', 'url']]
     df = df.reset_index(drop=True)
-
-    df_path = os.path.join(save_dir, f'catalog_{product_name.replace(" ", "")}.csv')
-    df.to_csv(df_path, index=False)
-    print(f'Catalog saved to {df_path}')
+    df['price'] = df['price'].astype(float)
+    df['promo_price'] = float(promo_price)
+    df['is_under_promo_price'] = df['price'].apply(lambda x: True if x < float(promo_price) else False)
     return df
 
 
 if __name__ == "__main__":
-    product_name = '丹麦慕尼黑白肠'
+    # product_name = '丹麦慕尼黑白肠'
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y%m%d")
     save_dir = f'results/{timestamp}'
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    platforms = [TaobaoScraper(), JDScraper()]
+    headless = False
+    sleep_time = 1
 
     # load df catalog and get products list and promo prices
     xl = pd.ExcelFile('inputs/catalog.xlsx')
     df = xl.parse('规格-概览（總表）')
-    promo_prices = df.iloc[:, 10].dropna()
-    product_names = df.iloc[:, 3].dropna()
+    promo_prices = df.iloc[:, 10].dropna().tolist()[1:]
+    product_names = df.iloc[:, 3].dropna().tolist()
     catalog = pd.DataFrame({
         'product_names': df.iloc[:, 3],
         'promo_prices': df.iloc[:, 10]
@@ -47,17 +40,29 @@ if __name__ == "__main__":
 
     tot_products = len(product_names)
     i = 0
-    process_df = []
     for product_name, promo_price in zip(product_names, promo_prices):
-        print(f'Scraping product: {product_name} ({i+1}/{tot_products})')
-        df = scrape_product(product_name, save_dir)  # scrape product data
-        df = process_dataset(df, product_name, promo_price)  # TODO preprocess data
-        process_df.append(df)
-        i += 1
+        for platform in platforms:
+            print(f'Scraping product : {product_name} ({i+1}/{tot_products}) from {platform.store_name}')
+            df_path = os.path.join(save_dir, f'{product_name}_{platform.store_name}.csv')
+            if os.path.isfile(df_path):
+                print(f"{df_path} already scraped")
+            product_dict = platform.scrape_product_info_by_weight(
+                product_name, use_gpt=False, verbose=False, sleep_time=sleep_time, headless=headless)
+            df = pd.DataFrame(product_dict)
+            df = process_dataset(df, promo_price)
+            df.to_csv(df_path, index=False)
+            print(f'Full catalog saved to {df_path}')
+            i += 1
+        break
 
-    df = pd.concat(process_df)
-    df = df.reset_index(drop=True)
-    df_path = os.path.join(save_dir, f'full_catalog.csv')
-    df.to_csv(df_path, index=False)
+    df_list = []
+    for filename in os.listdir(save_dir):
+        if filename.endswith('.csv') and not filename.endswith('full_catalog.csv'):
+            file_path = os.path.join(save_dir, filename)
+            df = pd.read_csv(file_path)
+            df_list.append(df)
+    full_df = pd.concat(df_list, ignore_index=True)
+    df_path = os.path.join(save_dir, 'full_catalog.csv')
+    full_df.to_csv(df_path, index=False)
     print(f'Full catalog saved to {df_path}')
 
