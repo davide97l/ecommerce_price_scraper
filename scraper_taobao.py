@@ -73,18 +73,28 @@ class TaobaoScraper(BaseScraper):
             return
         products_info = self.scrape_product_info(product_name_original, headless=headless)
         ordered_products, scores = self.get_best_matching_product(product_name_original, products_info)
+        # keep the vendors with positive score
         ordered_products = [product for product, score in zip(ordered_products, scores) if score > 0]
         if verbose: print(ordered_products)
         if verbose: print(scores)
+        if len(products_info) == 0:
+            print('Possible captcha detected!')
+            exit()
         #products_info = {'product_name': '丹麦皇冠西班牙风味香肠500g图林根风味猪肉肠幕尼黑风味白肠烤肠', 'price': 31.8, 'merchant': '你我的奶酪', 'url': 'https://item.taobao.com/item.htm?abbucket=17&id=760607768121&ns=1'}
         #products_info = {'product_name': '丹麦皇冠纯香肉肠台式火山石烤肠地道肠慕尼黑白肠图林根风味肠', 'price': 49.0, 'merchant': '寻味干货专营店', 'url': 'https://detail.tmall.com/item.htm?id=708213694390&ns=1&abbucket=17'}
         #products_info = {'product_name': '丹麦皇冠图林根香肠德国风味白肉肠熏煮肠西餐简餐商用800g约16条', 'price': 56.9, 'merchant': '瑞瀛生鲜冻品商城', 'url': 'https://detail.tmall.com/item.htm?ali_refid=a3_430582_1006:1684428020:N:TwvSVFUPtXbr29G34LcrOYtomUjWCyWz:3ff52cc43c1d158bc2a9e5f92eac4a77&ali_trackid=100_3ff52cc43c1d158bc2a9e5f92eac4a77&id=753462867032&spm=a21n57.1.0.0'}
 
         driver = self.login(headless=headless)
+        if "Please slide to verify" in driver.page_source:
+            print('Captcha detected!')
+            exit()
         product_dict = []
         for product_info in ordered_products:
             self.sleep()
             driver.get(product_info['url'])
+            if "Please slide to verify" in driver.page_source:
+                print('Captcha detected!')
+                exit()
             try:
                 element = WebDriverWait(driver, 5).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'skuItemWrapper')))
@@ -96,10 +106,12 @@ class TaobaoScraper(BaseScraper):
             products_list = soup.select('.skuItem')
             if verbose: print(f'Scraping product {product_info["product_name"]}')
             if verbose: print(f'Scraped {len(products_list)} items in details page')
+
+            # case ho products in details page
             if len(products_list) < 2:
                 if weight_original not in product_info['product_name']:
                     continue
-                score = self.check_name_matching_score(product_name_no_w, product_info['product_name'],
+                score = self.check_name_matching_score(product_name, product_info['product_name'],
                                                        remove_punctuation=True)
                 if score < 1:
                     continue
@@ -152,7 +164,10 @@ class TaobaoScraper(BaseScraper):
         if len(product_dict) < 2:
             driver.quit()
             if verbose: print('Final result:', product_dict)
+            if len(product_dict) == 0:
+                if verbose: print('No results found')
             return product_dict
+
         product_dict = sorted(product_dict, key=lambda x: x['score'], reverse=True)
 
         # filter with chatgpt
@@ -160,7 +175,8 @@ class TaobaoScraper(BaseScraper):
             gpt_scores = [self.check_name_matching_gpt(product['product_name'].split('-')[-1], product_name_original) for product in product_dict]
             gpt_product_dict = [product for i, product in enumerate(product_dict) if gpt_scores[i]]
             if verbose: print('GPT scores:', gpt_scores)
-            if verbose: print(f'After GPT filter ({len(gpt_product_dict)}):', product_dict)
+            if verbose: print(f'Before GPT filter ({len(product_dict)}):', product_dict)
+            if verbose: print(f'After GPT filter ({len(gpt_product_dict)}):', gpt_product_dict)
             if len(gpt_product_dict) > 0:
                 product_dict = gpt_product_dict
         else:
@@ -175,10 +191,12 @@ class TaobaoScraper(BaseScraper):
 
 
 def test_scraper():
-    scraper = TaobaoScraper(products_limit=10)
-    products = [#'丹麦皇冠慕尼黑风味白肠500g','丹麦皇冠慕尼黑风味白肠800g', '丹麦皇冠慕尼黑风味白肠350g',
+    scraper = TaobaoScraper(products_limit=10, sleep_time=1)
+    products = ['丹麦皇冠木烟熏蒸煮香肠200g'
+        #'丹麦皇冠慕尼黑风味白肠500g',
+                #'丹麦皇冠慕尼黑风味白肠800g', '丹麦皇冠慕尼黑风味白肠350g',
                 #'丹麦皇冠图林根风味香肠350g', '丹麦皇冠图林根风味香肠500g', '丹麦皇冠图林根风味香肠800g',
-                '丹麦皇冠西班牙风味香肠500g', '丹麦皇冠西班牙风味香肠350g', '丹麦皇冠西班牙风味香肠800g',
+                #'丹麦皇冠西班牙风味香肠500g', '丹麦皇冠西班牙风味香肠350g', '丹麦皇冠西班牙风味香肠800g',
                 #'丹麦皇冠木烟熏蒸煮香肠200g', '丹麦皇冠木烟熏蒸煮香肠1kg',
                 #'丹麦皇冠木烟熏蒸煮热狗肠200g', '丹麦皇冠木烟熏蒸煮热狗肠1kg', '丹麦皇冠超值热狗肠200g', '丹麦皇冠超值热狗肠1kg'
                 ]
@@ -189,12 +207,12 @@ def test_scraper():
     ]
     #x = scraper.scrape_product_info('丹麦皇冠慕尼黑风味白肠500g')
     #print(x)
-    '''for i, p in enumerate(products):
+    for i, p in enumerate(products):
         print(f'Scraping product: {products[i]}')
-        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=False, verbose=True, headless=False)
+        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=True, verbose=True, headless=False)
         print(f'Target price: {prices[i]}')
         print('--------------------')
-        time.sleep(5)'''
+        time.sleep(5)
 
 
 if __name__ == "__main__":

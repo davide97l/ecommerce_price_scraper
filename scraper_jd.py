@@ -63,6 +63,9 @@ class JDScraper(BaseScraper):
         ordered_products = [product for product, score in zip(ordered_products, scores) if score > 0]
         if verbose: print(ordered_products)
         if verbose: print(scores)
+        if len(products_info) == 0:
+            print('Possible captcha detected!')
+            exit()
         #ordered_products = [{'product_name': '桃西村原切烟熏专用配菜肉家用 慕尼黑风味白肠800g', 'price': 142.0, 'merchant': '鲨齿猪肉店', 'url': 'https://item.jd.com/10086095812629.html'}]
         #products_info = {'product_name': '丹麦皇冠纯香肉肠台式火山石烤肠地道肠慕尼黑白肠图林根风味肠', 'price': 49.0, 'merchant': '寻味干货专营店', 'url': 'https://detail.tmall.com/item.htm?id=708213694390&ns=1&abbucket=17'}
         #products_info = {'product_name': '丹麦皇冠图林根香肠德国风味白肉肠熏煮肠西餐简餐商用800g约16条', 'price': 56.9, 'merchant': '瑞瀛生鲜冻品商城', 'url': 'https://detail.tmall.com/item.htm?ali_refid=a3_430582_1006:1684428020:N:TwvSVFUPtXbr29G34LcrOYtomUjWCyWz:3ff52cc43c1d158bc2a9e5f92eac4a77&ali_trackid=100_3ff52cc43c1d158bc2a9e5f92eac4a77&id=753462867032&spm=a21n57.1.0.0'}
@@ -86,6 +89,7 @@ class JDScraper(BaseScraper):
             products_list = soup.select('.item[data-sku]')
             if verbose: print(f'Scraping product {product_info["product_name"]}')
             if verbose: print(f'Scraped {len(products_list)} items in details page')
+
             if len(products_list) < 2:
                 if weight_original not in product_info['product_name']:
                     continue
@@ -138,6 +142,9 @@ class JDScraper(BaseScraper):
                     driver.refresh()
                     self.sleep()
                     j -= 1
+                if j == 0:
+                    if verbose: print(f'skipped element due to price not found')
+                    continue
                 # check price
                 price_element = driver.find_element(By.CLASS_NAME, 'price')
                 if len(price_element.text) < 1:
@@ -154,7 +161,10 @@ class JDScraper(BaseScraper):
         if len(product_dict) < 2:
             driver.quit()
             if verbose: print('Final result:', product_dict)
+            if len(product_dict) == 0:
+                if verbose: print('No results found')
             return product_dict
+
         product_dict = sorted(product_dict, key=lambda x: x['score'], reverse=True)
 
         # filter with chatgpt
@@ -162,7 +172,8 @@ class JDScraper(BaseScraper):
             gpt_scores = [self.check_name_matching_gpt(product['product_name'].split('-')[-1], product_name_original) for product in product_dict]
             gpt_product_dict = [product for i, product in enumerate(product_dict) if gpt_scores[i]]
             if verbose: print('GPT scores:', gpt_scores)
-            if verbose: print(f'After GPT filter ({len(gpt_product_dict)}):', product_dict)
+            if verbose: print(f'Before GPT filter ({len(product_dict)}):', product_dict)
+            if verbose: print(f'After GPT filter ({len(gpt_product_dict)}):', gpt_product_dict)
             if len(gpt_product_dict) > 0:
                 product_dict = gpt_product_dict
         else:
@@ -177,7 +188,7 @@ class JDScraper(BaseScraper):
 
 
 def test_scraper():
-    scraper = JDScraper(products_limit=10)
+    scraper = JDScraper(products_limit=10, sleep_time=1)
     products = [
         '丹麦皇冠慕尼黑风味白肠500g', '丹麦皇冠慕尼黑风味白肠800g', '丹麦皇冠慕尼黑风味白肠350g',
         #'丹麦皇冠图林根风味香肠350g', '丹麦皇冠图林根风味香肠500g', '丹麦皇冠图林根风味香肠800g',

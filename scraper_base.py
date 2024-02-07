@@ -35,11 +35,6 @@ class BaseScraper:
         time.sleep(random.uniform(max(self.sleep_time-self.sleep_var, 0), max(self.sleep_time+self.sleep_var, 0))
                    if self.sleep_time > 0 else 0)
 
-    def get_product_df(self, product_name):
-        df = pd.DataFrame(self.scrape_product_info(product_name))
-        df['platform'] = self.store_name
-        return df
-
     @staticmethod
     def get_weight_from_product_name(product_name):
         try:
@@ -54,7 +49,7 @@ class BaseScraper:
 
     @staticmethod
     def check_name_matching_gpt(item1, item2):
-        print(item1, item2)
+        #print(item1, item2)
         load_dotenv()
         client = OpenAI(
             # This is the default and can be omitted
@@ -64,14 +59,20 @@ class BaseScraper:
             messages=[
                 {
                     "role": 'assistant',
-                    "content": """Act as a ecommerce products comparator. Given as input two items tell if they refer to the same item or they are different one. Ignore the brand and focus on the weight and type of item. Different weights also refer to different items. Just return True or False based on your conclusion.
-                            "\nItem 1: {}\nItem 2: {}""".format(item1, item2)
+                    "content": """
+                    Act as a ecommerce products comparator.
+                    Given as input two items tell if they refer to the same item or they are different ones. 
+                    Ignore the brand and focus on the weight and type of item. For example 丹麦皇冠西班牙风味香肠500g and 西班牙风味香肠500g are the same.
+                    If the type of the item is not specified, they are not the same item. For example 西班牙风味香肠 and 香肠 are different.
+                    Different weights also refer to different items. For example 西班牙风味香肠500g and 西班牙风味香肠800g are different.
+                    The type can be the same even if written in different ways. For example 丹麦皇冠西班牙风味香肠500g and 丹麦皇冠西班牙香肠500g are the same.
+                    Just return True or False based on your conclusion.
+                    \nItem 1: {}\nItem 2: {}""".format(item1, item2)
                 }
             ],
             model="gpt-4",
         )
         response = str(chat_completion.choices[0].message.content.strip()).lower()
-        print(response)
         return True if 'true' in response else False
 
     @staticmethod
