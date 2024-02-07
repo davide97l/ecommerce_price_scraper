@@ -11,37 +11,39 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 from fake_useragent import UserAgent
+import random
 
 
 class BaseScraper:
-    def __init__(self, products_limit=10):
+    def __init__(self, products_limit=10, sleep_time=0):
         self.limit = products_limit
         self.store_name = None
         self.cookies_path = None
         self.cookies_name = None
         self.url = None
         self.login_url = None
-        pass
+        self.sleep_time = sleep_time
+        self.sleep_var = 2.
 
     def scrape_product_info(self, product_name):
         pass
 
-    def get_product_info(self, product_name):
-        if not os.path.isfile(self.cookies_path):
-            print('Cookie not detected, please login so save cookies')
-            self.get_cookies(self.login_url, cookies_name=self.cookies_name)
-        products_info = self.scrape_product_info(product_name)
-        return products_info
+    def scrape_product_info_by_weight(self, product_name):
+        pass
+
+    def sleep(self):
+        time.sleep(random.uniform(max(self.sleep_time-self.sleep_var, 0), max(self.sleep_time+self.sleep_var, 0))
+                   if self.sleep_time > 0 else 0)
 
     def get_product_df(self, product_name):
-        df = pd.DataFrame(self.get_product_info(product_name))
+        df = pd.DataFrame(self.scrape_product_info(product_name))
         df['platform'] = self.store_name
         return df
 
     @staticmethod
     def get_weight_from_product_name(product_name):
         try:
-            weight = re.findall(r'(\d+g)', product_name)
+            weight = re.findall(r'(\d+(?:g|kg))', product_name)  # extract kg and g
             if weight:
                 updated_product_name = product_name.replace(weight[0], '').strip()
             else:
@@ -98,7 +100,7 @@ class BaseScraper:
             options.add_argument("--headless")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")
-        options.add_argument("--incognito")
+        #options.add_argument("--incognito")
         # Set up fake user agent
         ua = UserAgent()
         userAgent = ua.random
@@ -106,6 +108,9 @@ class BaseScraper:
         options.add_argument(f'user-agent={userAgent}')
         driver = webdriver.Chrome(options=options)
         driver.get(self.url)
+        if not os.path.isfile(self.cookies_path):
+            print('Cookie not detected, please login to save cookies')
+            self.get_cookies(self.login_url, cookies_name=self.cookies_name)
         cookies = pickle.load(open(self.cookies_path, 'rb'))
         for cookie in cookies:
             driver.add_cookie(cookie)

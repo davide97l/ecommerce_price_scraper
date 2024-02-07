@@ -13,26 +13,19 @@ import random
 
 
 class JDScraper(BaseScraper):
-    def __init__(self, products_limit=10):
-        super().__init__(products_limit)
+    def __init__(self, products_limit=10, sleep_time=0):
+        super().__init__(products_limit, sleep_time)
         self.cookies_path = 'cookies/jd.pkl'
         self.cookies_name = 'jd'
         self.url = 'https://www.jd.com'
         self.login_url = 'https://passport.jd.com/new/login.aspx'
         self.store_name = 'jd'
 
-    def scrape_product_info(self, product_name):
+    def scrape_product_info(self, product_name, headless=False):
         product_name = product_name.lower().replace(' ', '%20')
         search_url = f"https://search.jd.com/Search?keyword={product_name}"
 
-        driver = webdriver.Chrome()
-        driver.get(self.url)
-        cookies = pickle.load(open(self.cookies_path, 'rb'))  # login domain different from search domain
-        #print([cookie for cookie in cookies])
-        for cookie in cookies:
-            driver.add_cookie(cookie)
-        driver.refresh()
-
+        driver = self.login(headless=headless)
         driver.get(search_url)
         soup = BeautifulSoup(driver.page_source, 'lxml')
         #print(soup)
@@ -50,7 +43,8 @@ class JDScraper(BaseScraper):
             name = name.text.strip().replace('\n', ' ')
             if not url.startswith('https:'):
                 url = 'https:' + url
-            product = {"product_name": name, "price": price, "merchant": merchant.text.strip(), "url": url}
+            product = {"product_name": name, "price": price, "merchant": merchant.text.strip(), "url": url,
+                       'platform': self.store_name}
             products.append(product)
             if self.limit is not None and len(products) == self.limit:
                 break
@@ -59,13 +53,13 @@ class JDScraper(BaseScraper):
 
         return products
 
-    def scrape_product_info_by_weight(self, product_name, use_gpt=False, verbose=False, sleep_time=2., headless=False):
+    def scrape_product_info_by_weight(self, product_name, use_gpt=False, verbose=False, headless=False):
         product_name_original = product_name.lower().replace(' ', '%20')
         weight_original, product_name_no_w = self.get_weight_from_product_name(product_name_original)
         if weight_original is None:
             print('Error: weight is not specified in product name')
             return
-        products_info = self.get_product_info(product_name_original)
+        products_info = self.scrape_product_info(product_name_original, headless=headless)
         ordered_products, scores = self.get_best_matching_product(product_name_original, products_info)
         ordered_products = [product for product, score in zip(ordered_products, scores) if score > 0]
         if verbose: print(ordered_products)
@@ -77,7 +71,7 @@ class JDScraper(BaseScraper):
         driver = self.login(headless=headless)
         product_dict = []
         for product_info in ordered_products:
-            time.sleep(random.randint(max(sleep_time-2, 0), max(sleep_time+2, 0)))
+            self.sleep()
             driver.get(product_info['url'])
             if "验证一下，购物无忧" in driver.page_source:
                 print('Captcha detected!')
@@ -108,7 +102,7 @@ class JDScraper(BaseScraper):
                 continue
 
             for i, product in enumerate(products_list):
-                time.sleep(random.randint(max(sleep_time-2, 0), max(sleep_time+2, 0)))
+                self.sleep()
                 #if 'no-stock' in product:  # can check price of disabled elements
                 #    continue
                 product_name_detail_original = product.text.strip()
@@ -143,7 +137,7 @@ class JDScraper(BaseScraper):
                     except:
                         pass
                     driver.refresh()
-                    time.sleep(random.randint(max(sleep_time-2, 0), max(sleep_time+2, 0)))
+                    self.sleep()
                     j -= 1
                 # check price
                 price_element = driver.find_element(By.CLASS_NAME, 'price')

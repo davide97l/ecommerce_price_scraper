@@ -15,42 +15,41 @@ import random
 
 
 class TaobaoScraper(BaseScraper):
-    def __init__(self, products_limit=10):
-        super().__init__(products_limit)
+    def __init__(self, products_limit=10, sleep_time=0):
+        super().__init__(products_limit, sleep_time)
         self.cookies_path = 'cookies/taobao.pkl'
         self.cookies_name = 'taobao'
         self.url = 'https://www.taobao.com/'
         self.login_url = self.url
         self.store_name = 'taobao'
 
-    def scrape_product_info(self, product_name):
+    def scrape_product_info(self, product_name, headless=False):
         product_name = product_name.lower().replace(' ', '%20')
         search_url = f"https://s.taobao.com/search?page=1&q={product_name}&tab=all"
 
-        driver = self.login(headless=False)
-
+        driver = self.login(headless=headless)
         driver.get(search_url)
         soup = BeautifulSoup(driver.page_source, 'lxml')
 
         def criteria(tag):
-            # filter tmall items
-            #return not tag.find(class_='Title--iconPic--kYJcAc0')
             return tag.find(class_='Price--priceInt--ZlsSi_M') and tag.find(class_='Title--title--jCOPvpf') \
                    and tag.find(class_='Card--mainPicAndDesc--wvcDXaK') \
                    and not tag.find(class_='Card--doubleCard--wznk5U4') and not tag.find(class_='Card--doubleCardWrapper--L2XFE73')
+                   #and not tag.find(class_='Title--iconPic--kYJcAc0')
 
         divs = soup.find_all(criteria)
 
         def criteria(tag):
             return tag.name == 'a' and tag.get('class') and 'Card--doubleCardWrapper--L2XFE73' in tag.get('class') \
-                   #and tag.find(class_='Title--iconPic--kYJcAc0')
                    #and not tag.find(class_='Title--iconPic--kYJcAc0')
 
         a_tags = soup.find_all(criteria)
         urls = [a['href'] for a in a_tags]
 
         products = []
+        print('x')
         for div, url in zip(divs, urls):
+            is_tmall = div.select_one('.Title--iconPic--kYJcAc0')
             price_int = div.select_one('.Price--priceInt--ZlsSi_M')
             price_float = div.select_one('.Price--priceFloat--h2RR0RK')
             name = div.select_one('.Title--title--jCOPvpf')
@@ -58,7 +57,8 @@ class TaobaoScraper(BaseScraper):
             price = int(price_int.text.strip()) + float(price_float.text.strip())
             if not url.startswith('https:'):
                 url = 'https:' + url
-            product = {"product_name": name.text.strip(), "price": price, "merchant": merchant.text.strip(), "url": url}
+            product = {"product_name": name.text.strip(), "price": price, "merchant": merchant.text.strip(), "url": url,
+                       'platform': self.store_name if is_tmall is None else 'tmall'}
             products.append(product)
             if len(products) == self.limit:
                 break
@@ -67,13 +67,13 @@ class TaobaoScraper(BaseScraper):
 
         return products
 
-    def scrape_product_info_by_weight(self, product_name, use_gpt=False, verbose=False, sleep_time=2., headless=False):
+    def scrape_product_info_by_weight(self, product_name, use_gpt=False, verbose=False, headless=False):
         product_name_original = product_name.lower().replace(' ', '%20')
         weight_original, product_name_no_w = self.get_weight_from_product_name(product_name_original)
         if weight_original is None:
             print('Error: weight is not specified in product name')
             return
-        products_info = self.get_product_info(product_name_original)
+        products_info = self.scrape_product_info(product_name_original, headless=headless)
         ordered_products, scores = self.get_best_matching_product(product_name_original, products_info)
         ordered_products = [product for product, score in zip(ordered_products, scores) if score > 0]
         if verbose: print(ordered_products)
@@ -85,7 +85,7 @@ class TaobaoScraper(BaseScraper):
         driver = self.login(headless=headless)
         product_dict = []
         for product_info in ordered_products:
-            time.sleep(random.randint(max(sleep_time-2, 0), max(sleep_time+2, 0)))
+            self.sleep()
             driver.get(product_info['url'])
             try:
                 element = WebDriverWait(driver, 5).until(
@@ -113,7 +113,7 @@ class TaobaoScraper(BaseScraper):
                 continue
 
             for i, product in enumerate(products_list):
-                time.sleep(random.randint(max(sleep_time-2, 0), max(sleep_time+2, 0)))
+                self.sleep()
                 if 'disabled' in product:  # filter disabled elements
                     continue
                 product_name_detail_original = product.text.strip()
@@ -151,6 +151,10 @@ class TaobaoScraper(BaseScraper):
                                      'score': score})
                 if verbose: print(product_dict[-1])
 
+        if len(product_dict) < 2:
+            driver.quit()
+            if verbose: print('Final result:', product_dict)
+            return product_dict
         product_dict = sorted(product_dict, key=lambda x: x['score'], reverse=True)
 
         # filter with chatgpt
@@ -185,12 +189,14 @@ def test_scraper():
         #31.8, 49, 49,
         52, 27.84, 60
     ]
-    for i, p in enumerate(products):
+    #x = scraper.scrape_product_info('丹麦皇冠慕尼黑风味白肠500g')
+    #print(x)
+    '''for i, p in enumerate(products):
         print(f'Scraping product: {products[i]}')
         product_info = scraper.scrape_product_info_by_weight(p, use_gpt=False, verbose=True, headless=False)
         print(f'Target price: {prices[i]}')
         print('--------------------')
-        time.sleep(5)
+        time.sleep(5)'''
 
 
 if __name__ == "__main__":

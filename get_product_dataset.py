@@ -21,11 +21,12 @@ if __name__ == "__main__":
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y%m%d")
     save_dir = f'results/{timestamp}'
+    sleep_time = 1
+    headless = False
+
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    platforms = [TaobaoScraper(), JDScraper()]
-    headless = False
-    sleep_time = 1
+    platforms = [TaobaoScraper(sleep_time=sleep_time), JDScraper(sleep_time=sleep_time)]
 
     # load df catalog and get products list and promo prices
     xl = pd.ExcelFile('inputs/catalog.xlsx')
@@ -52,7 +53,7 @@ if __name__ == "__main__":
             df = process_dataset(df, promo_price)
             df.to_csv(df_path, index=False)
             print(f'Full catalog saved to {df_path}')
-            i += 1
+        i += 1
         break
 
     df_list = []
