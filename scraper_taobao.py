@@ -47,7 +47,7 @@ class TaobaoScraper(BaseScraper):
 
         products = []
         for div, url in zip(divs, urls):
-            is_tmall = div.select_one('.Title--iconPic--kYJcAc0')
+            #is_tmall = div.select_one('.Title--iconPic--kYJcAc0')
             price_int = div.select_one('.Price--priceInt--ZlsSi_M')
             price_float = div.select_one('.Price--priceFloat--h2RR0RK')
             name = div.select_one('.Title--title--jCOPvpf')
@@ -56,7 +56,7 @@ class TaobaoScraper(BaseScraper):
             if not url.startswith('https:'):
                 url = 'https:' + url
             product = {"product_name": name.text.strip(), "price": price, "merchant": merchant.text.strip(), "url": url,
-                       'platform': self.store_name if is_tmall is None else 'tmall'}
+                       'platform': self.store_name}
             products.append(product)
             if len(products) == self.limit:
                 break

@@ -2,6 +2,7 @@ import os
 from scraper_costco import CostcoScraper
 from scraper_jd import JDScraper
 from scraper_taobao import TaobaoScraper
+from scraper_tmall import TmallScraper
 import pandas as pd
 import datetime
 
@@ -28,7 +29,7 @@ if __name__ == "__main__":
 
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    platforms = [TaobaoScraper(sleep_time=sleep_time)]#, #JDScraper(sleep_time=sleep_time)]
+    platforms = [TaobaoScraper(sleep_time=sleep_time)]#, #TmallScraper(sleep_time=sleep_time), JDScraper(sleep_time=sleep_time)]
 
     # load df catalog and get products list and promo prices
     xl = pd.ExcelFile('inputs/catalog.xlsx')

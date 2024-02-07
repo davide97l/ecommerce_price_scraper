@@ -9,6 +9,8 @@ sometimes weight is only in main page and not in details page
 tmall and taobao can be one object for now
 costco excluded
 
+some products like 木烟熏蒸煮香肠200g can be found only with tmall
+
 TODO
 
 There are few ways to minimize the risk of triggering CAPTCHA when scraping websites using Selenium:
