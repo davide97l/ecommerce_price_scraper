@@ -11,7 +11,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
-import random
 
 
 class TaobaoScraper(BaseScraper):
@@ -47,7 +46,6 @@ class TaobaoScraper(BaseScraper):
         urls = [a['href'] for a in a_tags]
 
         products = []
-        print('x')
         for div, url in zip(divs, urls):
             is_tmall = div.select_one('.Title--iconPic--kYJcAc0')
             price_int = div.select_one('.Price--priceInt--ZlsSi_M')
