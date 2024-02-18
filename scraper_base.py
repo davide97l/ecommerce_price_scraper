@@ -96,7 +96,7 @@ class BaseScraper:
         sorted_products = [product_score['product'] for product_score in sorted_product_scores]
         return sorted_products, sorted_scores
 
-    def login(self, headless=False, playwright=None):
+    def login(self, headless=False, playwright=None, selenium=False):
         ip_address = requests.get('https://api.ipify.org').text
         print(f"Public IP Address: {ip_address}")
 
@@ -105,29 +105,24 @@ class BaseScraper:
         userAgent = ua.random
         print(userAgent)
 
-        '''options = Options()
-        #options.add_argument('user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537')
-        if headless:
-            options.add_argument("--headless")
-        options.add_argument("--no-sandbox")
-        options.add_argument("--disable-dev-shm-usage")
-        #options.add_argument("--incognito")
-        #print(userAgent)
-        options.add_argument(f'user-agent={userAgent}')
-        driver = webdriver.Chrome(options=options)
-        driver.get(self.url)
         if not os.path.isfile(self.cookies_path):
             print('Cookie not detected, please login to save cookies')
             self.get_cookies(self.login_url, cookies_name=self.cookies_name)
-        cookies = pickle.load(open(self.cookies_path, 'rb'))
-        for cookie in cookies:
-            driver.add_cookie(cookie)
-        driver.refresh()
-        return driver'''
 
-        if not os.path.isfile(self.cookies_path):
-            print('Cookie not detected, please login to save cookies')
-            self.get_cookies(self.login_url, cookies_name=self.cookies_name)
+        if selenium:
+            options = Options()
+            if headless:
+                options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            options.add_argument(f'user-agent={userAgent}')
+            driver = webdriver.Chrome(options=options)
+            driver.get(self.url)
+            cookies = pickle.load(open(self.cookies_path, 'rb'))
+            for cookie in cookies:
+                driver.add_cookie(cookie)
+            driver.refresh()
+            return driver
 
         if playwright is not None:
             browser = playwright.chromium.launch(headless=headless)

@@ -14,6 +14,7 @@ from selenium.common.exceptions import TimeoutException
 from scraper_taobao import TaobaoScraper
 from playwright.sync_api import sync_playwright
 import asyncio
+from playwright_stealth import stealth_sync
 
 
 class TmallScraper(TaobaoScraper):
@@ -35,6 +36,7 @@ class TmallScraper(TaobaoScraper):
 
             # Open new page
             page = context.new_page()
+            stealth_sync(page)
             page.goto(search_url)
             source_code = page.content()
             #print(source_code)

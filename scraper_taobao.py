@@ -77,6 +77,7 @@ class TaobaoScraper(BaseScraper):
         ordered_products = [product for product, score in zip(ordered_products, scores) if score > 0]
         if verbose: print(ordered_products)
         if verbose: print(scores)
+
         #ordered_products = [{'product_name': '丹麦皇冠慕尼黑风味白肠500g', 'price': 56.9, 'merchant': '瑞瀛生鲜冻品商城', 'url': 'https://item.taobao.com/item.htm?abbucket=19&id=760607768121&ns=1&spm=a21n57.1.0.0.777a523c2PlHCJ'}]
 
         with sync_playwright() as playwright:
@@ -84,6 +85,7 @@ class TaobaoScraper(BaseScraper):
 
             # Open new page
             page = context.new_page()
+            stealth_sync(page)
             page.goto(self.url)
             if "Please slide to verify" in page.content():
                 print('Captcha detected!')
@@ -195,18 +197,12 @@ class TaobaoScraper(BaseScraper):
 
 def test_scraper():
     scraper = TaobaoScraper(products_limit=10, sleep_time=1)
-    products = [#'丹麦皇冠木烟熏蒸煮香肠200g'
-                '丹麦皇冠慕尼黑风味白肠500g',
-                #'丹麦皇冠慕尼黑风味白肠800g', '丹麦皇冠慕尼黑风味白肠350g',
-                #'丹麦皇冠图林根风味香肠350g', '丹麦皇冠图林根风味香肠500g', '丹麦皇冠图林根风味香肠800g',
-                #'丹麦皇冠西班牙风味香肠500g', '丹麦皇冠西班牙风味香肠350g', '丹麦皇冠西班牙风味香肠800g',
-                #'丹麦皇冠木烟熏蒸煮香肠200g', '丹麦皇冠木烟熏蒸煮香肠1kg',
-                #'丹麦皇冠木烟熏蒸煮热狗肠200g', '丹麦皇冠木烟熏蒸煮热狗肠1kg', '丹麦皇冠超值热狗肠200g', '丹麦皇冠超值热狗肠1kg'
-                ]
+    products = [
+                #'丹麦皇冠慕尼黑风味白肠500g',
+                '丹麦皇冠慕尼黑风味白肠800g',
+    ]
     prices = [
-        49, 64, 32,
-        31.8, 49, 49,
-        52, 27.84, 60
+        49, 64
     ]
     for i, p in enumerate(products):
         print(f'Scraping product: {products[i]}')
