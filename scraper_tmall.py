@@ -12,6 +12,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 from scraper_taobao import TaobaoScraper
+from playwright.sync_api import sync_playwright
+import asyncio
 
 
 class TmallScraper(TaobaoScraper):
@@ -23,67 +25,54 @@ class TmallScraper(TaobaoScraper):
         self.login_url = self.url
         self.store_name = 'tmall'
 
-    def scrape_product_info(self, product_name, headless=False):
+    def scrape_product_info(self, product_name, headless=False, verbose=False):
         product_name = product_name.lower().replace(' ', '%20')
         search_url = f"https://s.taobao.com/search?fromTmallRedirect=true&page=1&q={product_name}&tab=mall"
+        if verbose: print(search_url)
 
-        driver = self.login(headless=headless)
-        driver.get(search_url)
-        soup = BeautifulSoup(driver.page_source, 'lxml')
+        with sync_playwright() as playwright:
+            browser, context = self.login(playwright=playwright)
 
-        def criteria(tag):
-            return tag.find(class_='Price--priceInt--ZlsSi_M') and tag.find(class_='Title--title--jCOPvpf') \
-                   and tag.find(class_='Card--mainPicAndDesc--wvcDXaK') \
-                   and not tag.find(class_='Card--doubleCard--wznk5U4') and not tag.find(class_='Card--doubleCardWrapper--L2XFE73')
+            # Open new page
+            page = context.new_page()
+            page.goto(search_url)
+            source_code = page.content()
+            #print(source_code)
 
-        divs = soup.find_all(criteria)
+            products = []
+            items = page.query_selector_all('.Card--doubleCardWrapperMall--uPmo5Bz')
+            for item in items:
+                name = item.query_selector('.Title--title--jCOPvpf').text_content()
+                price_int = item.query_selector('.Price--priceInt--ZlsSi_M').text_content()
+                price_float = item.query_selector('.Price--priceFloat--h2RR0RK').text_content()
+                merchant = item.query_selector('.ShopInfo--shopName--rg6mGmy').text_content()
+                price = int(price_int.strip()) + float(price_float.strip())
+                url = item.get_attribute('href')
+                if not url.startswith('https:'):
+                    url = 'https:' + url
+                product = {"product_name": name.strip(), "price": price, "merchant": merchant.strip(), "url": url,
+                           'platform': self.store_name}
+                products.append(product)
+                if len(products) == self.limit:
+                    break
 
-        def criteria(tag):
-            return tag.name == 'a' and tag.get('class') and 'Card--doubleCardWrapper--L2XFE73' in tag.get('class')
-
-        a_tags = soup.find_all(criteria)
-        urls = [a['href'] for a in a_tags]
-
-        products = []
-        for div, url in zip(divs, urls):
-            price_int = div.select_one('.Price--priceInt--ZlsSi_M')
-            price_float = div.select_one('.Price--priceFloat--h2RR0RK')
-            name = div.select_one('.Title--title--jCOPvpf')
-            merchant = div.select_one('.ShopInfo--shopName--rg6mGmy')
-            price = int(price_int.text.strip()) + float(price_float.text.strip())
-            if not url.startswith('https:'):
-                url = 'https:' + url
-            product = {"product_name": name.text.strip(), "price": price, "merchant": merchant.text.strip(), "url": url,
-                       'platform': self.store_name}
-            products.append(product)
-            if len(products) == self.limit:
-                break
-
-        driver.quit()
+            page.close()
+            browser.close()
 
         return products
 
 
 def test_scraper():
-    scraper = TaobaoScraper(products_limit=10, sleep_time=1)
-    products = ['丹麦皇冠木烟熏蒸煮香肠200g'
-        #'丹麦皇冠慕尼黑风味白肠500g',
-                #'丹麦皇冠慕尼黑风味白肠800g', '丹麦皇冠慕尼黑风味白肠350g',
-                #'丹麦皇冠图林根风味香肠350g', '丹麦皇冠图林根风味香肠500g', '丹麦皇冠图林根风味香肠800g',
-                #'丹麦皇冠西班牙风味香肠500g', '丹麦皇冠西班牙风味香肠350g', '丹麦皇冠西班牙风味香肠800g',
-                #'丹麦皇冠木烟熏蒸煮香肠200g', '丹麦皇冠木烟熏蒸煮香肠1kg',
-                #'丹麦皇冠木烟熏蒸煮热狗肠200g', '丹麦皇冠木烟熏蒸煮热狗肠1kg', '丹麦皇冠超值热狗肠200g', '丹麦皇冠超值热狗肠1kg'
-                ]
-    prices = [
-        #49, 64, 32,
-        #31.8, 49, 49,
-        52, 27.84, 60
+    scraper = TmallScraper(products_limit=10, sleep_time=3)
+    products = [
+        '丹麦皇冠木烟熏蒸煮香肠200g'
     ]
-    #x = scraper.scrape_product_info('丹麦皇冠慕尼黑风味白肠500g')
-    #print(x)
+    prices = [
+        21.9
+    ]
     for i, p in enumerate(products):
         print(f'Scraping product: {products[i]}')
-        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=True, verbose=True, headless=False)
+        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=True, verbose=True, headless=True)
         print(f'Target price: {prices[i]}')
         print('--------------------')
         time.sleep(5)
