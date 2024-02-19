@@ -32,12 +32,15 @@ class TmallScraper(TaobaoScraper):
         if verbose: print(search_url)
 
         with sync_playwright() as playwright:
-            browser, context = self.login(playwright=playwright)
+            browser, context = self.login(playwright=playwright, headless=headless)
 
             # Open new page
             page = context.new_page()
             stealth_sync(page)
             page.goto(search_url)
+            if "Please slide to verify" in page.content():
+                print('Captcha detected!')
+                input('Press to continue...')
             source_code = page.content()
             #print(source_code)
 
@@ -60,6 +63,8 @@ class TmallScraper(TaobaoScraper):
 
             page.close()
             browser.close()
+
+        products = self.remove_duplicates(products, 'product_name')
 
         return products
 

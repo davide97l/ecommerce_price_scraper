@@ -31,12 +31,15 @@ class TaobaoScraper(BaseScraper):
         if verbose: print(search_url)
 
         with sync_playwright() as playwright:
-            browser, context = self.login(playwright=playwright)
+            browser, context = self.login(playwright=playwright, headless=headless)
 
             # Open new page
             page = context.new_page()
             stealth_sync(page)
             page.goto(search_url)
+            if "Please slide to verify" in page.content():
+                print('Captcha detected!')
+                input('Press to continue...')
             source_code = page.content()
             #print(source_code)
 
@@ -60,6 +63,8 @@ class TaobaoScraper(BaseScraper):
             page.close()
             browser.close()
 
+        products = self.remove_duplicates(products, 'product_name')
+
         return products
 
     def scrape_product_info_by_weight(self, product_name, use_gpt=False, verbose=False, headless=False):
@@ -75,13 +80,13 @@ class TaobaoScraper(BaseScraper):
         ordered_products, scores = self.get_best_matching_product(product_name_original, products_info)
         # keep the vendors with positive score
         ordered_products = [product for product, score in zip(ordered_products, scores) if score > 0]
-        if verbose: print(ordered_products)
-        if verbose: print(scores)
+        if verbose: print(f'Retrieved {len(ordered_products)} merchants:', ordered_products)
+        if verbose: print(f'Merchants scores:', scores)
 
         #ordered_products = [{'product_name': '丹麦皇冠慕尼黑风味白肠500g', 'price': 56.9, 'merchant': '瑞瀛生鲜冻品商城', 'url': 'https://item.taobao.com/item.htm?abbucket=19&id=760607768121&ns=1&spm=a21n57.1.0.0.777a523c2PlHCJ'}]
 
         with sync_playwright() as playwright:
-            browser, context = self.login(playwright=playwright)
+            browser, context = self.login(playwright=playwright, headless=headless)
 
             # Open new page
             page = context.new_page()
@@ -89,24 +94,20 @@ class TaobaoScraper(BaseScraper):
             page.goto(self.url)
             if "Please slide to verify" in page.content():
                 print('Captcha detected!')
-                exit()
+                input('Solve it then press to continue...')
             #print(page.content())
 
             product_dict = []
-            for product_info in ordered_products:
+            for j, product_info in enumerate(ordered_products):
                 self.sleep()
                 page.goto(product_info['url'])
                 if "Please slide to verify" in page.content():
                     print('Captcha detected!')
-                    exit()
+                    input('Solve it then press to continue...')
 
-                try:
-                    element = page.wait_for_selector('.skuItemWrapper', timeout=5000)
-                except asyncio.TimeoutError:
-                    pass  # this will simply cause products_list to be empty which is ok
-
+                page.wait_for_selector('.skuItem')
                 products_list = page.query_selector_all('.skuItem')
-                if verbose: print(f'Scraping product {product_info["product_name"]}')
+                if verbose: print(f'Scraping products merchant ({j+1}): {product_info["product_name"]}')
                 if verbose: print(f'Scraped {len(products_list)} items in details page')
 
                 # case ho products in details page
@@ -121,24 +122,32 @@ class TaobaoScraper(BaseScraper):
                                          'merchant': product_info['merchant'], 'url': product_info['url'],
                                          'platform': self.store_name,
                                          'score': score})
-                    if verbose: print(product_dict[-1])
+                    if verbose: print(f'Added: {product_dict[-1]}')
                     continue
 
                 for i, product in enumerate(products_list):
                     self.sleep()
                     if 'disabled' in product.get_attribute('class'):
                         continue
-                    product_name_detail_original = product.text_content().strip()
-                    if verbose: print(product_name_detail_original)
+                    try:
+                        product_name_detail_original = product.text_content().strip()
+                    except:
+                        print(f'Could not scrape ({i+1}) {product}')
+                        continue
+                    if verbose: print(f'Scraping item ({i+1}): {product_name_detail_original}')
                     if weight_original not in product_name_detail_original and weight_original not in product_info['product_name']:
+                        if verbose: print('Weight unknown')
                         continue
                     weight, product_name_detail = self.get_weight_from_product_name(product_name_detail_original)
                     if weight and weight != weight_original:
+                        if verbose: print('Weight not matching')
                         continue
                     elif not weight and weight_original not in product_info['product_name']:
+                        if verbose: print('Weight unknown')
                         continue
                     score = self.check_name_matching_score(product_name_no_w, product_name_detail, remove_punctuation=True)
                     if score < 1:
+                        if verbose: print(f'Low matching score: {score}')
                         continue
 
                     # now click on it to get the price
@@ -154,7 +163,7 @@ class TaobaoScraper(BaseScraper):
                         price_element = page.query_selector('.Price--priceText--2nLbVda')
 
                     if len(price_element.text_content()) < 1:
-                        if verbose: print('Could not find price')
+                        if verbose: print('Price not found')
                         continue
                     price = float(price_element.text_content())
                     product_dict.append({'product_name': f"{product_info['product_name']}-{product_name_detail_original}",
@@ -162,7 +171,7 @@ class TaobaoScraper(BaseScraper):
                                          'merchant': product_info['merchant'], 'url': product_info['url'],
                                          'platform': self.store_name,
                                          'score': score})
-                    if verbose: print(product_dict[-1])
+                    if verbose: print(f'Added: {product_dict[-1]}')
 
             if len(product_dict) < 2:
                 page.close()
@@ -202,7 +211,7 @@ def test_scraper():
                 '丹麦皇冠慕尼黑风味白肠800g',
     ]
     prices = [
-        49, 64
+        49, 49
     ]
     for i, p in enumerate(products):
         print(f'Scraping product: {products[i]}')

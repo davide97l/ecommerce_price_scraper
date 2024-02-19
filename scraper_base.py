@@ -152,3 +152,11 @@ class BaseScraper:
         print(f'Cookies saved at {cookies_path}')
 
         driver.quit()
+
+    @staticmethod
+    def remove_duplicates(list_of_dict, key):
+        new_list_of_dict = []
+        for d in list_of_dict:
+            if d[key] not in [nd[key] for nd in new_list_of_dict]:
+                new_list_of_dict.append(d)
+        return new_list_of_dict
