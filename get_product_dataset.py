@@ -30,8 +30,8 @@ if __name__ == "__main__":
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     platforms = [
-        TaobaoScraper(sleep_time=sleep_time),
-        #TmallScraper(sleep_time=sleep_time),
+        #TaobaoScraper(sleep_time=sleep_time),
+        TmallScraper(sleep_time=sleep_time),
         #JDScraper(sleep_time=sleep_time, products_limit=5)
     ]
 

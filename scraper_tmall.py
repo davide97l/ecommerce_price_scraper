@@ -79,7 +79,7 @@ def test_scraper():
     ]
     for i, p in enumerate(products):
         print(f'Scraping product: {products[i]}')
-        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=True, verbose=True, headless=True)
+        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=True, verbose=True, headless=False)
         print(f'Target price: {prices[i]}')
         print('--------------------')
         time.sleep(5)
