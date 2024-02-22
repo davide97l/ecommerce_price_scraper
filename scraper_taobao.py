@@ -1,18 +1,6 @@
-import numpy as np
-from bs4 import BeautifulSoup
-from selenium import webdriver
-import pickle
-import os
 from scraper_base import BaseScraper
-from selenium.webdriver.common.by import By
 import time
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 from playwright.sync_api import sync_playwright
-import asyncio
 from playwright_stealth import stealth_sync
 
 
@@ -25,10 +13,14 @@ class TaobaoScraper(BaseScraper):
         self.login_url = self.url
         self.store_name = 'taobao'
 
-    def scrape_product_info(self, product_name, headless=False, verbose=True):
+    def scrape_product_info(self, product_name, headless=False, verbose=True, use_proxy=False):
         product_name = product_name.lower().replace(' ', '%20')
         search_url = f"https://s.taobao.com/search?page=1&q={product_name}"
         if verbose: print(search_url)
+
+        if use_proxy:
+            pass
+            #search_url, gateway = self.get_proxy_url(f"https://s.taobao.com/search?page=1&q={urllib.parse.quote(product_name)}")
 
         with sync_playwright() as playwright:
             browser, context = self.login(playwright=playwright, headless=headless)
@@ -37,9 +29,9 @@ class TaobaoScraper(BaseScraper):
             page = context.new_page()
             stealth_sync(page)
             page.goto(search_url)
-            if "Please slide to verify" in page.content():
+            if "Please slide to verify" or "unusual traffic" in page.content():
                 print('Captcha detected!')
-                input('Press to continue...')
+                input('Solve captcha then press to continue...')
             source_code = page.content()
             #print(source_code)
 
@@ -67,13 +59,13 @@ class TaobaoScraper(BaseScraper):
 
         return products
 
-    def scrape_product_info_by_weight(self, product_name, use_gpt=False, verbose=False, headless=False):
+    def scrape_product_info_by_weight(self, product_name, use_gpt=False, verbose=False, headless=False, use_proxy=False):
         product_name_original = product_name.lower().replace(' ', '%20')
         weight_original, product_name_no_w = self.get_weight_from_product_name(product_name_original)
         if weight_original is None:
             print('Error: weight is not specified in product name')
             return
-        products_info = self.scrape_product_info(product_name_original, headless=headless)
+        products_info = self.scrape_product_info(product_name_original, headless=headless, use_proxy=use_proxy)
         if len(products_info) == 0:
             print('Possible captcha detected!')
             exit()
@@ -91,17 +83,17 @@ class TaobaoScraper(BaseScraper):
             # Open new page
             page = context.new_page()
             stealth_sync(page)
-            page.goto(self.url)
-            if "Please slide to verify" in page.content():
-                print('Captcha detected!')
-                input('Solve it then press to continue...')
-            #print(page.content())
 
             product_dict = []
             for j, product_info in enumerate(ordered_products):
                 self.sleep()
-                page.goto(product_info['url'])
-                if "Please slide to verify" in page.content():
+
+                if use_proxy:
+                    proxy, gateway = self.get_proxy_url(product_info['url'])
+                    page.goto(proxy)
+                else:
+                    page.goto(product_info['url'])
+                if "Please slide to verify" or "unusual traffic" in page.content():
                     print('Captcha detected!')
                     input('Solve it then press to continue...')
 
@@ -173,6 +165,9 @@ class TaobaoScraper(BaseScraper):
                                          'score': score})
                     if verbose: print(f'Added: {product_dict[-1]}')
 
+                if use_proxy:
+                    gateway.shutdown()
+
             if len(product_dict) < 2:
                 page.close()
                 browser.close()
@@ -215,7 +210,7 @@ def test_scraper():
     ]
     for i, p in enumerate(products):
         print(f'Scraping product: {products[i]}')
-        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=True, verbose=True, headless=True)
+        product_info = scraper.scrape_product_info_by_weight(p, use_gpt=True, verbose=True, headless=False, use_proxy=True)
         print(f'Target price: {prices[i]}')
         print('--------------------')
         time.sleep(5)

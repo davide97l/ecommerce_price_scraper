@@ -4,11 +4,12 @@ import pickle
 import urllib.parse
 from playwright.sync_api import sync_playwright
 from dotenv import load_dotenv
+from playwright_stealth import stealth_sync
 load_dotenv()
 
 search_item = '丹麦皇冠木烟熏蒸煮香肠200g'
 x = urllib.parse.quote(search_item)  # URL encode the query
-url = f'https://s.taobao.com/search?fromTmallRedirect=true&page=1&q={x}&tab=mall'
+url = f'https://s.taobao.com/search#?fromTmallRedirect=true&page=1&q={x}&tab=mall'
 
 # Set up and start API Gateway
 aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
@@ -39,7 +40,8 @@ with sync_playwright() as p:
     context.add_cookies(cookies)
 
     page = context.new_page()
-    page.goto(url)
+    stealth_sync(page)
+    page.goto(proxy_url)
     items = page.query_selector_all('.Card--doubleCardWrapperMall--uPmo5Bz')
     print(f'Found {len(items)} items')
     for item in items:
@@ -47,6 +49,7 @@ with sync_playwright() as p:
         if title_element:  # Check if the element was found
             title = title_element.text_content()
             print(f'Title: {title}')
+    input('Check if working then press to continue...')
 
     context.close()
     browser.close()

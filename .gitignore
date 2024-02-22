@@ -160,3 +160,7 @@ cython_debug/
 .idea/
 
 results/
+cookies/
+fireprox/
+.idea/vcs.xml
+.idea/vcs.xml

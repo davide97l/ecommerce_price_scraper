@@ -1,10 +1,10 @@
 import os
-from scraper_costco import CostcoScraper
 from scraper_jd import JDScraper
 from scraper_taobao import TaobaoScraper
 from scraper_tmall import TmallScraper
 import pandas as pd
 import datetime
+import argparse
 
 
 def process_dataset(df, promo_price, product_name):
@@ -18,22 +18,15 @@ def process_dataset(df, promo_price, product_name):
     return df
 
 
-if __name__ == "__main__":
-    # product_name = '丹麦慕尼黑白肠'
-    prefix = '丹麦皇冠'
+def main(prefix, sleep_time, headless, platforms):
     now = datetime.datetime.now()
     timestamp = now.strftime("%Y%m%d")
     save_dir = f'results/{timestamp}'
-    sleep_time = 5.
-    headless = False
 
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    platforms = [
-        #TaobaoScraper(sleep_time=sleep_time),
-        TmallScraper(sleep_time=sleep_time),
-        #JDScraper(sleep_time=sleep_time, products_limit=5)
-    ]
+    platform_classes = {'jd': JDScraper, 'taobao': TaobaoScraper, 'tmall': TmallScraper}
+    platforms = [platform_classes[p](sleep_time=sleep_time, products_limit=5) for p in platforms]
 
     # load df catalog and get products list and promo prices
     xl = pd.ExcelFile('inputs/catalog.xlsx')
@@ -54,7 +47,8 @@ if __name__ == "__main__":
         for platform in platforms:
             print(f'Scraping product : {product_name} ({i+1}/{tot_products}) from {platform.store_name}')
             df_path = os.path.join(save_dir, f'{product_name}_{platform.store_name}.csv')
-            if os.path.isfile(df_path) or 'empty_' in df_path:
+            empty_df_path = os.path.join(save_dir, f'empty_{product_name}_{platform.store_name}.csv')
+            if os.path.isfile(df_path) or os.path.isfile(empty_df_path):
                 print(f"{df_path} already scraped")
                 continue
             product_dict = platform.scrape_product_info_by_weight(
@@ -62,7 +56,7 @@ if __name__ == "__main__":
             if len(product_dict) == 0:
                 print(f'No suitable items found for {product_name}')
                 df = pd.DataFrame()
-                df_path = os.path.join(save_dir, f'empty_{product_name}_{platform.store_name}.csv')
+                df_path = empty_df_path
             else:
                 df = pd.DataFrame(product_dict)
                 df = process_dataset(df, promo_price, product_name)
@@ -80,3 +74,14 @@ if __name__ == "__main__":
     df_path = os.path.join(save_dir, 'full_catalog.csv')
     full_df.to_csv(df_path, index=False)
     print(f'Full catalog saved to {df_path}')
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Process some arguments.')
+    parser.add_argument('--prefix', type=str, default='丹麦皇冠', help='Prefix for the product name, usually the brand of the product, can also leave empty here')
+    parser.add_argument('--sleep_time', type=float, default=5.0, help='Sleep time for the scraper')
+    parser.add_argument('--headless', type=bool, default=False, help='Whether to run the scraper in headless mode')
+    parser.add_argument('--platforms', nargs='+', default=['jd'], help='List of platforms to use')
+
+    args = parser.parse_args()
+    main(args.prefix, args.sleep_time, args.headless, args.platforms)

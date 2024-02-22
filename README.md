@@ -1,26 +1,40 @@
-# merchants_price_scraper
+# E-commerce Price Scraper
 
-search product without weight
-get the best matching product
-open it and select the right weight
-if it exists do another matching to select the best product with that weight and flawor, that is what to return
-sometimes weight is only in main page and not in details page
+This project consists of a multifunctional tool designed to scrape the prices of a set of products from different vendors via e-commerce websites such as Taobao, Tmall, and Jingdong.
+The primary function is to compare the scraped prices and identify discounted offers to assist users in finding the best deals for their desired products.
 
-tmall and taobao can be one object for now
-costco excluded
+## Example
 
-some products like 木烟熏蒸煮香肠200g can be found only with tmall
+We have a list of products, for instance: `"Danish Crown Ham Slices 800g"`, `"Danish Crown Barbecue Pork 500g"`, `"Danish Crown Sauce Pork Ribs 200g"`.
+These keywords are used to search the e-commerce websites.
 
-TODO
+The goal is to generate a CSV file that contains the URL of the vendor, the price, and a boolean indicating whether the price is lower than the market price. 
 
-There are few ways to minimize the risk of triggering CAPTCHA when scraping websites using Selenium:
+![Project Screenshot](images/result.png)
 
-Be Respectful: Respect the website's robots.txt file and don't hit the servers too frequently. Make your crawl slower, don't bombard the servers with multiple requests per second.
+The market price is given as a CSV file sourced from the official vendor of the products, for instance, Danish Crown.
 
-Use Proxies: Using a pool of different IP addresses can help. Once one IP gets blocked, you can switch to another.
+![Project Screenshot](images/products_list.png)
 
-Use a headless browser: Headless browsers are less likely to be detected as bots.
+## Installing and run
 
-Randomize your actions: Randomize the intervals at which you make requests to make the bot seem more human.
+A step by step series of examples that tell you how to get a development environment running:
 
-User-Agent Spoofing: Websites can detect the user-agent of browsers. Changing user-agents can help avoid being detected as a bot.
+1. Clone the repo
+```sh
+git https://github.com/davide97l/merchants_price_scraper
+```
+
+2. Install Python packages
+```sh
+pip install -r requirements.txt
+```
+
+3. Run
+```sh
+python main.py --platforms jd taobao tmall
+```
+
+## Support this project
+
+If you found this project interesting please support me by giving it a ⭐, I would really appreciate it 😀

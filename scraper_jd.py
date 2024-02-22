@@ -1,17 +1,7 @@
-from bs4 import BeautifulSoup
-from selenium import webdriver
-import pickle
-import os
 from scraper_base import BaseScraper
 import time
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 from playwright_stealth import stealth_sync
 from playwright.sync_api import sync_playwright
-import asyncio
 
 
 class JDScraper(BaseScraper):
@@ -107,7 +97,7 @@ class JDScraper(BaseScraper):
                     print('Captcha detected!')
                     input('Solve it then press to continue...')
 
-                page.wait_for_selector('.item[data-sku]')
+                #page.wait_for_selector('.item[data-sku]')
                 products_list = page.query_selector_all('.item[data-sku]')
                 if verbose: print(f'Scraping products merchant ({j+1}): {product_info["product_name"]}')
                 if verbose: print(f'Scraped {len(products_list)} items in details page')

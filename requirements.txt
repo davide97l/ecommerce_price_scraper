@@ -1,0 +1,9 @@
+selenium
+openai
+fake_useragent
+requests
+requests_ip_rotator
+python-dotenv
+playwright
+playwright_stealth
+pandas

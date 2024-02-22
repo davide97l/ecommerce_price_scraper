@@ -1,19 +1,17 @@
 from selenium import webdriver
-import pickle
 import time
-import os
-import pandas as pd
 import re
-import numpy as np
 from selenium.webdriver.chrome.options import Options
 from operator import itemgetter
 from openai import OpenAI
-from dotenv import load_dotenv
-import os
 from fake_useragent import UserAgent
 import random
 import requests
-from playwright.sync_api import sync_playwright
+from requests_ip_rotator import ApiGateway, DEFAULT_REGIONS
+import os
+import pickle
+from dotenv import load_dotenv
+load_dotenv()
 
 
 class BaseScraper:
@@ -143,8 +141,8 @@ class BaseScraper:
         driver = webdriver.Chrome()
         driver.get(url)  # Navigate to your URL
 
-        print(f'Now you have can login')
-        print('Press any button to continue after you have logged in')
+        print(f'Now you can login')
+        print('Press any button to continue after you have logged in...')
         input()
 
         # This creates cookies.pkl and saves the cookies:
@@ -161,3 +159,21 @@ class BaseScraper:
             if d[key] not in [nd[key] for nd in new_list_of_dict]:
                 new_list_of_dict.append(d)
         return new_list_of_dict
+
+    @staticmethod
+    def get_proxy_url(url):
+        # Set up and start API Gateway
+        aws_access_key_id = os.getenv('AWS_ACCESS_KEY_ID')
+        aws_access_key_secret = os.getenv('AWS_SECRET_ACCESS_KEY')
+        # Ensure that the regions you want to use are available and enabled in your AWS account.
+        gateway = ApiGateway(url, regions=DEFAULT_REGIONS,
+                             access_key_id=aws_access_key_id, access_key_secret=aws_access_key_secret)
+        endpoints = gateway.start()
+
+        # Ensure endpoints are generated.
+        if not endpoints:
+            raise Exception("No endpoints were created. Check your AWS configuration.")
+
+        proxy_endpoint = endpoints[0]
+        proxy_url = f'https://{proxy_endpoint}/ProxyStage/'
+        return proxy_url, gateway

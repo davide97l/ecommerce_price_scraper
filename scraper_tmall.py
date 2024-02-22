@@ -1,19 +1,6 @@
-import numpy as np
-from bs4 import BeautifulSoup
-from selenium import webdriver
-import pickle
-import os
-from scraper_base import BaseScraper
-from selenium.webdriver.common.by import By
 import time
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 from scraper_taobao import TaobaoScraper
 from playwright.sync_api import sync_playwright
-import asyncio
 from playwright_stealth import stealth_sync
 
 
