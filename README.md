@@ -45,7 +45,9 @@ During the development of this project, I faced several technical obstacles, and
     - **Randomized Requests:** The program generates random user-agents and introduces random intervals between each request to avoid pattern detection.
     - **Captcha Alert:** The program alerts the user when a captcha appears, allowing for manual resolution.
     - **Stealth Scraping:** Used stealth scraping libraries such as [playwright-stealth](https://pypi.org/project/playwright-stealth/) to further enhance the human-like browsing behavior.
-    - **Rotating proxy IP:** TODO. 
+    - **Rotating proxy IP:** TODO.
+
+- **Product Matching:** Frequently, the products retrieved may have slightly different names compared to the searched product. To address this issue, the program leverages a Language Model to verify the similarity between the scraped product name and the searched product name. This approach aids in filtering out false positives, ensuring only relevant product data is considered.
 
 These strategies help ensure successful and uninterrupted scraping of product data from e-commerce websites.
 
